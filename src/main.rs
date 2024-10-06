@@ -1,4 +1,4 @@
-mod dto;
+pub mod dto;
 use dto::node::Node;
 
 fn main() {
