@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 socket2 = "0.4"
+clap = { version = "4.0", features = ["derive"] }
 
 [[bin]]
 name = "main"

@@ -28,6 +28,7 @@ impl Node {
 
         println!("Ip Address -> {ip_address}\nTransfer Speed -> {transfer_speed}");
         */
+        
         Node {
             node_id,
             ip_address,
