@@ -19,7 +19,6 @@ impl Descritor {
         let folder_name: String = format!("nodes/{}", node_id);
         let node_folder: &Path = Path::new(&folder_name);
 
-        //let _ = remove_dir_all(node_folder);
         let _ = create_dir(node_folder);
 
         Descritor {
