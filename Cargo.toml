@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-socket2 = "0.4"
+socket2 = "0.5.7"
 clap = { version = "4.0", features = ["derive"] }
+tempfile = "3.3"
+
 
 [[bin]]
 name = "main"

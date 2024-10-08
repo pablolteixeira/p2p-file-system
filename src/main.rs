@@ -1,9 +1,9 @@
 pub mod dto;
+pub mod server_service;
 use std::{mem::MaybeUninit, net::UdpSocket};
 
 use clap::Parser;
 use dto::node::Node;
-mod server_service;
 use server_service::UdpListener;
 
 use socket2::{Domain, Protocol, Socket, Type};
