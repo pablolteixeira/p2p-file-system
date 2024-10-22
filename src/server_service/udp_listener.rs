@@ -1,6 +1,5 @@
-use std::{mem::MaybeUninit, net::UdpSocket};
+use std::net::UdpSocket;
 
-use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::dto::node::Node;
 

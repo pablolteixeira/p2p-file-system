@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::Path;
 
 pub struct Chunker {
     file: File,
@@ -12,20 +11,18 @@ impl Chunker {
     pub fn new(file_path: &str, amount_of_chunks: u32) -> io::Result<Chunker> {
         let file = File::open(file_path)?;
 
-        let mut file_size = file.metadata()?.len() as u64;
+        let file_size = file.metadata()?.len() as u64;
 
         Ok(Chunker {file, amount_of_chunks, file_size })
     }
 
     pub fn get_chunk(&mut self, chunk_position: u32) -> io::Result<Vec<u8>> {
-
         if chunk_position >= self.amount_of_chunks {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Chunk position out of bounds",
             ));
         }
-
 
         let chunk_size = self.file_size / self.amount_of_chunks as u64;
         let remainder = self.file_size % self.amount_of_chunks as u64;

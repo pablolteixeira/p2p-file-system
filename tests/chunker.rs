@@ -1,14 +1,12 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 use tempfile::tempdir;
-use std::path::Path;
 
 use p2p_file_system::dto::chunker::Chunker;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Seek, SeekFrom};
 
     #[test]
     fn test_chunker_reconstruction() -> io::Result<()> {
