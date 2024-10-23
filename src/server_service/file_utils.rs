@@ -71,6 +71,6 @@ impl FileUtils {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("Failed to read file!");
 
-        Ok(buffer).unwrap()
+        buffer
     }
 }
