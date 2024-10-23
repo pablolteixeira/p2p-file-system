@@ -1,5 +1,5 @@
-use std::{f32::consts::E, net::UdpSocket, time::Duration};
-use crate::dto::node::Node;
+use std::{net::UdpSocket, time::Duration};
+use crate::dto::{node::Node, message::Message};
 
 use std::sync::{Arc, Mutex};
 
@@ -29,17 +29,27 @@ impl UdpNodeService {
         let mut buffer = vec![0_u8; 1024];
 
         loop {
-            match self.socket_udp.recv(&mut buffer) {
-                Ok(n) => {
+            match self.socket_udp.recv_from(&mut buffer) {
+                Ok((n, sender)) => {
                     let message: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&buffer[..n]);
-                    
-                    println!("Received message {}", message.to_string());
+                    let mut received_message: Message = Message::get_from_bytes(&buffer);
 
+                    let current_ttl = received_message.decrease_ttl();
+
+                    println!("Received message from {} - ttl -> {}", sender.to_string(), received_message.ttl);
+                
                     let node = self.node.lock().unwrap();
+                    
+                    let serialized_message = received_message.get_bytes();
+                    let byte_slice: &[u8] = &serialized_message[..];
 
-                    for (key, value) in node.neighbors_hashmap.iter() {
-                        print!("Flooding messages to {}: ", key);
-                        self.socket_udp.send_to(message.as_bytes(), value)?;
+                    if current_ttl > 0{
+                        for (key, value) in node.neighbors_hashmap.iter() {
+                            println!("Flooding messages to {} - {}: ", key, value.to_string());
+                            self.socket_udp.send_to(byte_slice, value)?;}
+                    }
+                    else{
+                        println!("Finished TTL {}", message);
                     }
                 },
                 Err(ref e) => {
@@ -61,11 +71,13 @@ impl UdpNodeService {
         println!("Enviando mensagem");
 
         let node = self.node.lock().unwrap();
-        for (_, value) in node.neighbors_hashmap.iter() {
+        for (key, value) in node.neighbors_hashmap.iter() {
             self.socket_udp.connect(value)?;
             let n = self.socket_udp.send(message)?;
             
-            println!("Written buffer: {:?}", String::from_utf8_lossy(&message[0..n]));
+            println!("Flooding messages to {} - {}: ", key, value.to_string());
+
+            //println!("Written buffer: {:?}", String::from_utf8_lossy(&message[0..n]));
         }
         
         Ok(())

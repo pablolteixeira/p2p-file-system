@@ -5,6 +5,7 @@ use bincode::{self, Encode};
 #[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug)]
 pub struct Message {
     pub id: String,
+    pub ttl: u32,
     pub filename: String,
     pub sender_ip: String,
 }
@@ -17,31 +18,14 @@ impl Message {
             .map(char::from)
             .collect();
 
-        Message { id, filename, sender_ip }
+        let ttl: u32 = 5;
+
+        Message { id, ttl, filename, sender_ip }
     }
 
-    pub fn get_id(&self) -> &String {
-        &self.id
-    }
-
-    pub fn get_filename(&self) -> &String {
-        &self.filename
-    }
-
-    pub fn get_sender_ip(&self) -> &String {
-        &self.sender_ip
-    }
-
-    pub fn set_id(&mut self, id: String) {
-        self.id = id;
-    }
-
-    pub fn set_filename(&mut self, filename: String) {
-        self.filename = filename;
-    }
-
-    pub fn set_sender_ip(&mut self, sender_ip: String) {
-        self.sender_ip = sender_ip;
+    pub fn decrease_ttl(&mut self) -> u32 {
+        self.ttl -= 1;
+        self.ttl
     }
 
     pub fn get_bytes(&self) -> Vec<u8> {

@@ -2,6 +2,7 @@ pub mod dto;
 pub mod server_service;
 
 use clap::Parser;
+use dto::message::{self, Message};
 use dto::node::Node;
 use server_service::UdpNodeService;
 
@@ -19,15 +20,16 @@ fn main() -> std::io::Result<()> {
     let args: Cli = Cli::parse();
     let node: Arc<Mutex<Node>> = Arc::new(Mutex::new(Node::new(args.node_id)));
 
-    let udp_listener: Arc<UdpNodeService> = Arc::new(UdpNodeService::new(node));
+    let udp_node_service: Arc<UdpNodeService> = Arc::new(UdpNodeService::new(Arc::clone(&node)));
 
-    let udp_listener_clone = Arc::clone(&udp_listener);
-    let udp_listener_thread = thread::spawn(move || {
-        let _ = udp_listener_clone.listen();
+    let udp_node_service_clone = Arc::clone(&udp_node_service);
+    let udp_node_service_thread = thread::spawn(move || {
+        let _ = udp_node_service_clone.listen();
     });
 
     let cli_thread = {
-        let udp_listener = Arc::clone(&udp_listener);
+        let udp_node_service_clone = Arc::clone(&udp_node_service);
+        let node_clone = Arc::clone(&node);
         thread::spawn(move || {
             loop {
                 print!("Enter command: ");
@@ -39,14 +41,21 @@ fn main() -> std::io::Result<()> {
                 if command == "quit" {
                     break;
                 }
-                println!("You entered: {}", command);  
+                println!("\nYou entered: {}", command); 
 
-                let _ = udp_listener.send(input.as_bytes());
+                let sender_ip = {
+                    let node_guard = node_clone.lock().expect("Failed to lock node");
+                    node_guard.ip_address
+                };
+
+                let new_message = Message::new(String::from("test.txt"), sender_ip.to_string());
+
+                let _ = udp_node_service_clone.send(&new_message.get_bytes());
             }
         })
     };
 
-    udp_listener_thread.join().unwrap();
+    udp_node_service_thread.join().unwrap();
     cli_thread.join().unwrap();
 
     Ok(())
