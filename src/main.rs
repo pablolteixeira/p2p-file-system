@@ -3,7 +3,6 @@ pub mod server_service;
 
 use clap::Parser;
 use dto::message::{Message};
-use server_service::file_utils::FileUtils;
 use dto::node::Node;
 use server_service::UdpNodeService;
 
@@ -22,8 +21,7 @@ fn main() -> std::io::Result<()> {
 
     let node: Arc<Mutex<Node>> = Arc::new(Mutex::new(Node::new(args.node_id)));
 
-    let mut file_utils = FileUtils::new(args.node_id);
-    file_utils.startup();
+
 
     let udp_node_service: Arc<UdpNodeService> = Arc::new(UdpNodeService::new(Arc::clone(&node)));
 
