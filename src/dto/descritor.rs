@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::fs::{create_dir, File};
+use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::net::SocketAddr;
 use std::path::Path;
@@ -8,7 +8,6 @@ pub struct Descritor {
     node_id: u128,
     config_path: Box<Path>,
     topology_path: Box<Path>,
-    node_folder: Box<Path>,
 }
 
 impl Descritor {
@@ -16,16 +15,10 @@ impl Descritor {
         let config_path: &Path = Path::new("config/config.txt");
         let topology_path: &Path = Path::new("config/topologia.txt");
 
-        let folder_name: String = format!("nodes/{}", node_id);
-        let node_folder: &Path = Path::new(&folder_name);
-
-        let _ = create_dir(node_folder);
-
         Descritor {
             node_id,
             config_path: config_path.into(),
             topology_path: topology_path.into(),
-            node_folder: node_folder.into(),
         }
     }
 

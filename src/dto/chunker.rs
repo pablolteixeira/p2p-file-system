@@ -32,8 +32,6 @@ impl Chunker {
             buffer = vec![0; final_chunk_size as usize];
         }
 
-
-
         let seek_position = chunk_position as u64 * chunk_size;
         self.file.seek(SeekFrom::Start(seek_position))?;
 

@@ -1,6 +1,6 @@
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Serialize, Deserialize};
-use bincode::{self, Encode};
+use bincode;
 
 #[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug)]
 pub struct Message {
@@ -11,14 +11,12 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new(filename: String, sender_ip: String) -> Message {
+    pub fn new(filename: String, sender_ip: String, ttl: u32) -> Message {
         let id: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(32)
             .map(char::from)
             .collect();
-
-        let ttl: u32 = 5;
 
         Message { id, ttl, filename, sender_ip }
     }

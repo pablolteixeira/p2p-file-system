@@ -31,7 +31,7 @@ impl UdpNodeService {
         loop {
             match self.socket_udp.recv_from(&mut buffer) {
                 Ok((n, sender)) => {
-                    let message: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&buffer[..n]);
+                    let _ = String::from_utf8_lossy(&buffer[..n]);
                     let mut received_message: Message = Message::get_from_bytes(&buffer);
 
                     let current_ttl = received_message.decrease_ttl();
@@ -45,11 +45,11 @@ impl UdpNodeService {
 
                     if current_ttl > 0{
                         for (key, value) in node.neighbors_hashmap.iter() {
-                            println!("Flooding messages to {} - {}: ", key, value.to_string());
+                            println!("Flooding messages to {} - {}", key, value.to_string());
                             self.socket_udp.send_to(byte_slice, value)?;}
                     }
                     else{
-                        println!("Finished TTL {}", message);
+                        println!("Finished TTL {:?}", received_message);
                     }
                 },
                 Err(ref e) => {
@@ -73,9 +73,9 @@ impl UdpNodeService {
         let node = self.node.lock().unwrap();
         for (key, value) in node.neighbors_hashmap.iter() {
             self.socket_udp.connect(value)?;
-            let n = self.socket_udp.send(message)?;
+            let _n = self.socket_udp.send(message)?;
             
-            println!("Flooding messages to {} - {}: ", key, value.to_string());
+            println!("Flooding messages to {} - {}", key, value.to_string());
 
             //println!("Written buffer: {:?}", String::from_utf8_lossy(&message[0..n]));
         }

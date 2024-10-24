@@ -1,9 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::{fs};
 use std::path::{Path, PathBuf};
 use std::env;
-use std::fmt::Debug;
-use std::fs::{File, ReadDir};
+use std::fs::{self, File, ReadDir};
 use std::io::Read;
 
 pub struct FileUtils {
@@ -13,7 +11,7 @@ pub struct FileUtils {
 
 impl FileUtils {
     pub fn new(node_id: u128) -> Self {
-        let mut chunk_table = HashMap::new();
+        let chunk_table = HashMap::new();
         Self{
             node_id, chunk_table
         }
