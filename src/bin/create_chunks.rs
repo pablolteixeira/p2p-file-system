@@ -1,4 +1,10 @@
 use std::{env, fs::{self, read_dir, File}, io::{BufWriter, Read, Write}, path::{self, PathBuf}};
+use clap::Parser;
+
+#[derive(Parser)]
+struct Cli {
+    file_name: String,
+}
 
 struct ChunkCreator {
     file_path: Box<PathBuf>,
@@ -93,12 +99,14 @@ impl ChunkCreator {
 }
 
 fn main () {
+    let args: Cli = Cli::parse();
+
     println!("Create chunks!");
 
-    let file_path = String::from("files/image.jpeg");
+    let file_path = format!("files/{}", args.file_name);
 
     let chunk_creator = ChunkCreator::new(&file_path, 10);
     chunk_creator.create_chunks();
 
-    ChunkCreator::read_chunks(String::from("image.jpeg"));
+    ChunkCreator::read_chunks(args.file_name);
 }
