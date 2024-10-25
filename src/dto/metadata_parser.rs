@@ -13,13 +13,13 @@ impl MetadataParser {
         }
     }
 
-    pub fn parse(&self) -> (String, u32, u32) {
+    pub fn parse(&self) -> (String, u8, u32) {
         let metadata_file: File = File::open(&self.metadata_file_path).expect("Should have been able to read the file");
     
         let metadata_file_reader: BufReader<File> = io::BufReader::new(metadata_file);
 
         let mut file_name = String::new();
-        let mut chunks: u32 = 0;
+        let mut chunks: u8 = 0;
         let mut ttl: u32 = 0;
 
         for (i, metadata_file_line) in metadata_file_reader.lines().enumerate() {

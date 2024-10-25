@@ -105,7 +105,7 @@ fn main () {
 
     let file_path = format!("files/{}", args.file_name);
 
-    let chunk_creator = ChunkCreator::new(&file_path, 10);
+    let chunk_creator = ChunkCreator::new(&file_path, 5);
     chunk_creator.create_chunks();
 
     ChunkCreator::read_chunks(args.file_name);

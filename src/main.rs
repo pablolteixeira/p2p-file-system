@@ -5,6 +5,7 @@ use clap::Parser;
 use dto::message::Message;
 use dto::node::Node;
 use dto::metadata_parser::MetadataParser;
+use server_service::TcpNodeService;
 use server_service::UdpNodeService;
 
 use std::thread;
@@ -27,6 +28,13 @@ fn main() -> std::io::Result<()> {
     let udp_node_service_clone = Arc::clone(&udp_node_service);
     let udp_node_service_thread = thread::spawn(move || {
         let _ = udp_node_service_clone.listen();
+    });
+
+    let tcp_node_service: Arc<TcpNodeService> = Arc::new(TcpNodeService::new(Arc::clone(&node)));
+
+    let tcp_node_service_clone = Arc::clone(&tcp_node_service);
+    let tcp_node_service_thread = thread::spawn(move || {
+        let _ = tcp_node_service_clone.listen();
     });
 
     let cli_thread = {
@@ -52,7 +60,7 @@ fn main() -> std::io::Result<()> {
                     let metadata_file_parser = MetadataParser::new(&command.to_string());
                     let (file_name, chunks, ttl) = metadata_file_parser.parse();
 
-                    let new_message = Message::new(file_name, sender_ip.to_string(), ttl);
+                    let new_message = Message::new_flooding(file_name, sender_ip.clone(), chunks, ttl);
                     
                     let _ = udp_node_service_clone.send(&new_message.get_bytes());
                 }
@@ -61,6 +69,7 @@ fn main() -> std::io::Result<()> {
     };
 
     udp_node_service_thread.join().unwrap();
+    tcp_node_service_thread.join().unwrap();
     cli_thread.join().unwrap();
 
     Ok(())

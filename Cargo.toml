@@ -10,7 +10,7 @@ tempfile = "3.3"
 rand = "0.8"
 serde = { version = "1.0.210", features = ["derive"] }
 bincode = "2.0.0-rc.3"
-
+colored = "2.1.0"
 
 
 [[bin]]
