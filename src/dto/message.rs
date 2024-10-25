@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use serde::{Serialize, Deserialize};
 use bincode;
 
@@ -25,8 +25,8 @@ pub struct Message {
 
 impl Message {
     pub fn new_flooding(filename: String, sender_ip: SocketAddr, chunk_amount: u8, ttl: u32) -> Message {
-        let id: String = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
+        let id: String = OsRng
+            .sample_iter(&Alphanumeric) 
             .take(32)
             .map(char::from)
             .collect();

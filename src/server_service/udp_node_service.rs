@@ -1,4 +1,4 @@
-use std::{net::UdpSocket, time::Duration};
+use std::{collections::HashSet, net::UdpSocket, sync::mpsc::Sender, time::Duration};
 use crate::dto::{message::{Message, MessageType}, node::Node};
 
 use std::sync::{Arc, Mutex};
@@ -18,14 +18,14 @@ impl UdpNodeService {
         socket_udp
             .set_nonblocking(true)
             .expect("Failed to set socket to non-blocking mode");
-
+        
         UdpNodeService { 
             node,
             socket_udp,
         }
     }
 
-    pub fn listen(&self) -> std::io::Result<()> {
+    pub fn listen(&self, tx: Sender<bool>) -> std::io::Result<()> {
         println!("Node {} - UDP está escutando...", self.node.lock().unwrap().ip_address);
 
         let mut buffer = vec![0_u8; 1024];
@@ -86,18 +86,27 @@ impl UdpNodeService {
                         let key = format!("{}:{}", received_message.sender_ip_tcp.unwrap().ip(), received_message.sender_ip_tcp.unwrap().port());
 
                         node.wanted_chunks.insert(key, (received_message.transfer_speed.unwrap(), received_message.chunks.clone().unwrap()));
-                        
+
                         if let Some(chunks_hash_set) = node.chunks_counter.get_mut(&received_message.id.clone().unwrap()) {
                             for chunk in received_message.chunks.unwrap().iter() {
                                 chunks_hash_set.insert(chunk.clone());
                             }
-                        }                        
-                        
+                        } else {
+                            let mut hash_set = HashSet::<u8>::new();
+
+                            for chunk in received_message.chunks.unwrap().iter() {
+                                hash_set.insert(chunk.clone());
+                            }
+
+                            node.chunks_counter.insert(received_message.id.clone().unwrap(), hash_set);
+                        }
+                        println!("{} - {}", node.chunks_counter.get(&received_message.id.clone().unwrap()).unwrap().len(), received_message.chunk_amount);
+
                         if node.chunks_counter.get(&received_message.id.unwrap()).unwrap().len() == received_message.chunk_amount.into() {
-                            
+                            let _ = tx.send(true);
                         }
 
-                        println!("{:?}", format_string);
+                        println!("{}", format_string);
                     }
                 },
                 Err(ref e) => {

@@ -8,6 +8,7 @@ use dto::metadata_parser::MetadataParser;
 use server_service::TcpNodeService;
 use server_service::UdpNodeService;
 
+use std::sync::mpsc;
 use std::thread;
 use std::io::{self, Write};
 
@@ -23,11 +24,13 @@ fn main() -> std::io::Result<()> {
 
     let node: Arc<Mutex<Node>> = Arc::new(Mutex::new(Node::new(args.node_id)));
 
+    let (tx, rx) = mpsc::channel::<bool>();
+
     let udp_node_service: Arc<UdpNodeService> = Arc::new(UdpNodeService::new(Arc::clone(&node)));
 
     let udp_node_service_clone = Arc::clone(&udp_node_service);
     let udp_node_service_thread = thread::spawn(move || {
-        let _ = udp_node_service_clone.listen();
+        let _ = udp_node_service_clone.listen(tx);
     });
 
     let tcp_node_service: Arc<TcpNodeService> = Arc::new(TcpNodeService::new(Arc::clone(&node)));
@@ -39,6 +42,7 @@ fn main() -> std::io::Result<()> {
 
     let cli_thread = {
         let udp_node_service_clone = Arc::clone(&udp_node_service);
+        let tcp_node_service_clone = Arc::clone(&tcp_node_service);
         let node_clone = Arc::clone(&node);
         thread::spawn(move || {
             loop {
@@ -63,6 +67,8 @@ fn main() -> std::io::Result<()> {
                     let new_message = Message::new_flooding(file_name, sender_ip.clone(), chunks, ttl);
                     
                     let _ = udp_node_service_clone.send(&new_message.get_bytes());
+
+                    let _ = tcp_node_service_clone.send(&rx);
                 }
             }
         })
