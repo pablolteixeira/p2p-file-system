@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     sync::{mpsc::Receiver, Arc, Mutex},
-    time::Duration,
+    time::Duration, vec,
 };
 
 use colored::Colorize;
@@ -96,8 +96,8 @@ impl TcpNodeService {
                                         eprintln!("Failed to send chunks to {}: {}", client_addr, e);
                                     } else {
                                         println!(
-                                            "Sent chunks {:?} to {}",
-                                            requested_chunks, client_addr
+                                            "Sent chunks {:?} to {}:{}",
+                                            requested_chunks, client_addr.ip(), client_addr.port()
                                         );
                                     }
                                 }
@@ -159,12 +159,14 @@ impl TcpNodeService {
         // Keep track of downloaded chunks to avoid duplicates
         let mut downloaded_chunks = HashSet::new();
 
+        let mut downloaded_chunks_buffer: Vec<ChunkData> = vec![];
+
         // Iterate over peers and request chunks
         for (addr, (_speed, chunks)) in peers {
             // Filter out chunks that have already been downloaded
             let chunks_to_request: Vec<u8> = chunks
                 .iter()
-                .filter(|chunk| !downloaded_chunks.contains(chunk))
+                .filter(|chunk| !downloaded_chunks.contains(*chunk))
                 .cloned()
                 .collect();
 
@@ -211,13 +213,10 @@ impl TcpNodeService {
                         bincode::decode_from_slice(&buffer, bincode::config::standard())
                             .expect("Failed to deserialize chunk data");
 
-                    // Save the chunks
-                    let node = self.node.lock().unwrap();
-                    node.file_utils.save_chunks(&file_name, &chunk_datas);
-
                     // Update the downloaded_chunks set
                     for chunk_data in &chunk_datas {
                         downloaded_chunks.insert(chunk_data.chunk_id);
+                        downloaded_chunks_buffer.push(chunk_data.clone());
                     }
 
                     println!(
@@ -236,12 +235,17 @@ impl TcpNodeService {
 
             // Check if all chunks have been downloaded
             if downloaded_chunks.len() == total_chunks as usize {
-                println!("All chunks have been downloaded.");
                 break;
             }
         }
 
-        if downloaded_chunks.len() < total_chunks as usize {
+        // Check if all chunks have been downloaded
+        if downloaded_chunks.len() == total_chunks as usize {
+            println!("All chunks have been downloaded.");
+            // Save the chunks
+            let node = self.node.lock().unwrap();
+            node.file_utils.save_chunks(&file_name, &downloaded_chunks_buffer);
+        } else {
             println!("Could not download all chunks.");
         }
     }

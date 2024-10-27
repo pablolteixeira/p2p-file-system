@@ -91,7 +91,7 @@ impl FileUtils {
     }
 
     /// Saves received chunks to the file system.
-    pub fn save_chunks(&self, file_name: &str, chunk_datas: &[ChunkData]) {
+    pub fn save_chunks(&self, file_name: &str, chunk_datas: &Vec<ChunkData>) {
         let mut sorted_chunks = chunk_datas.to_vec();
         sorted_chunks.sort_by_key(|cd| cd.chunk_id);
 
