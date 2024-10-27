@@ -66,9 +66,7 @@ fn start_udp_service(
 /// Starts the TCP service thread.
 fn start_tcp_service(tcp_service: Arc<TcpNodeService>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        //if let Err(_) = tcp_service.listen() {
-            //eprintln!("TCP service encountered an error: {}", e);
-        //}
+        tcp_service.listen();
     })
 }
 
