@@ -1,14 +1,18 @@
 use std::{
+    collections::HashSet,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     sync::{mpsc::Receiver, Arc, Mutex},
     time::Duration,
-    collections::HashSet,
 };
 
 use colored::Colorize;
 
-use crate::dto::{message::{Message, MessageType}, node::Node};
+use crate::dto::{
+    chunk_data::ChunkData,
+    message::{Message, MessageType},
+    node::Node,
+};
 
 /// A service that handles TCP communication for a node.
 pub struct TcpNodeService {
@@ -60,7 +64,8 @@ impl TcpNodeService {
                             if bytes_read == 0 {
                                 continue;
                             }
-                            let received_message = Message::get_from_bytes(&buffer[..bytes_read]);
+                            let received_message =
+                                Message::get_from_bytes(&buffer[..bytes_read]);
 
                             match received_message.message_type {
                                 MessageType::ChunkRequest => {
@@ -75,18 +80,33 @@ impl TcpNodeService {
 
                                     // Retrieve the requested chunks from the file system
                                     let node = self.node.lock().unwrap();
-                                    let chunks_data = node.file_utils.get_chunks_data(&file_name, &requested_chunks);
+                                    let chunk_datas = node
+                                        .file_utils
+                                        .get_chunks_data(&file_name, &requested_chunks);
+
+                                    // Serialize the chunks using bincode
+                                    let encoded_chunks = bincode::encode_to_vec(
+                                        &chunk_datas,
+                                        bincode::config::standard(),
+                                    )
+                                        .expect("Failed to serialize chunk data");
 
                                     // Send the chunks back to the requester
-                                    if let Err(e) = tcp_stream.write_all(&chunks_data) {
+                                    if let Err(e) = tcp_stream.write_all(&encoded_chunks) {
                                         eprintln!("Failed to send chunks to {}: {}", client_addr, e);
                                     } else {
-                                        println!("Sent chunks {:?} to {}", requested_chunks, client_addr);
+                                        println!(
+                                            "Sent chunks {:?} to {}",
+                                            requested_chunks, client_addr
+                                        );
                                     }
                                 }
                                 _ => {
                                     // Handle other message types if necessary
-                                    eprintln!("Received unexpected message type from {}", client_addr);
+                                    eprintln!(
+                                        "Received unexpected message type from {}",
+                                        client_addr
+                                    );
                                 }
                             }
                         }
@@ -125,7 +145,7 @@ impl TcpNodeService {
             (
                 node_guard.wanted_chunks.clone(),
                 node_guard.file_name.clone().unwrap(),
-                node_guard.total_chunks, // Assuming you store the total number of chunks
+                node_guard.total_chunks,
             )
         };
 
@@ -144,7 +164,7 @@ impl TcpNodeService {
             // Filter out chunks that have already been downloaded
             let chunks_to_request: Vec<u8> = chunks
                 .iter()
-                .filter(|chunk| !downloaded_chunks.contains(*chunk))
+                .filter(|chunk| !downloaded_chunks.contains(chunk))
                 .cloned()
                 .collect();
 
@@ -152,7 +172,10 @@ impl TcpNodeService {
                 continue;
             }
 
-            println!("Connecting to {} to request chunks {:?}", addr, chunks_to_request);
+            println!(
+                "Connecting to {} to request chunks {:?}",
+                addr, chunks_to_request
+            );
 
             // Connect to the node via TCP
             let mut socket_tcp = match TcpStream::connect(addr) {
@@ -176,24 +199,35 @@ impl TcpNodeService {
             }
 
             // Read the response and save the chunks
-            let mut buffer = vec![0_u8; 1024 * 1024]; // Adjust buffer size as needed
-            match socket_tcp.read(&mut buffer) {
+            let mut buffer = Vec::new();
+            match socket_tcp.read_to_end(&mut buffer) {
                 Ok(bytes_read) => {
                     if bytes_read == 0 {
                         eprintln!("Received no data from {}", addr);
                         continue;
                     }
-                    // Process the received data
-                    let chunk_data = &buffer[..bytes_read];
+                    // Deserialize the received data into Vec<ChunkData>
+                    let (chunk_datas, _): (Vec<ChunkData>, usize) =
+                        bincode::decode_from_slice(&buffer, bincode::config::standard())
+                            .expect("Failed to deserialize chunk data");
 
-                    // Save the chunk data
+                    // Save the chunks
                     let node = self.node.lock().unwrap();
-                    node.file_utils.save_chunks(&file_name, chunk_data);
+                    node.file_utils.save_chunks(&file_name, &chunk_datas);
 
                     // Update the downloaded_chunks set
-                    downloaded_chunks.extend(chunks_to_request.clone());
+                    for chunk_data in &chunk_datas {
+                        downloaded_chunks.insert(chunk_data.chunk_id);
+                    }
 
-                    println!("Downloaded chunks {:?} from {}", chunks_to_request, addr);
+                    println!(
+                        "Downloaded chunks {:?} from {}",
+                        chunk_datas
+                            .iter()
+                            .map(|cd| cd.chunk_id)
+                            .collect::<Vec<_>>(),
+                        addr
+                    );
                 }
                 Err(e) => {
                     eprintln!("Failed to read chunks from {}: {}", addr, e);

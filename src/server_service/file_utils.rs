@@ -6,6 +6,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::dto::chunk_data::ChunkData;
+
 /// Utility class for file operations related to chunks.
 pub struct FileUtils {
     node_id: u128,
@@ -61,14 +63,17 @@ impl FileUtils {
     }
 
     /// Retrieves the data for the specified chunks of a file.
-    pub fn get_chunks_data(&self, file_name: &str, chunks: &[u8]) -> Vec<u8> {
-        let mut data = Vec::new();
+    pub fn get_chunks_data(&self, file_name: &str, chunks: &[u8]) -> Vec<ChunkData> {
+        let mut chunk_datas = Vec::new();
         for &chunk_id in chunks {
             if let Some(chunk_data) = self.read_chunk(file_name, chunk_id) {
-                data.extend(chunk_data);
+                chunk_datas.push(ChunkData {
+                    chunk_id,
+                    data: chunk_data,
+                });
             }
         }
-        data
+        chunk_datas
     }
 
     /// Reads a specific chunk from the file system.
@@ -86,11 +91,19 @@ impl FileUtils {
     }
 
     /// Saves received chunks to the file system.
-    pub fn save_chunks(&self, file_name: &str, data: &[u8]) {
-        // For simplicity, we are assuming that data contains the concatenation of all requested chunks
-        // You may need to parse the data to separate individual chunks
+    pub fn save_chunks(&self, file_name: &str, chunk_datas: &[ChunkData]) {
+        let mut sorted_chunks = chunk_datas.to_vec();
+        sorted_chunks.sort_by_key(|cd| cd.chunk_id);
+
         let path = self.folder_path.join(file_name);
         let mut file = File::create(&path).expect("Failed to create file");
-        file.write_all(data).expect("Failed to write data to file");
+
+        // Write each chunk's data to the file in order
+        for chunk_data in sorted_chunks {
+            file.write_all(&chunk_data.data)
+                .expect("Failed to write chunk data to file");
+        }
+
+        println!("Saved file {}", path.display());
     }
 }
