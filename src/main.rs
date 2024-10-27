@@ -57,8 +57,8 @@ fn start_udp_service(
     tx: mpsc::Sender<bool>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        if let Err(e) = udp_service.listen(tx) {
-            eprintln!("UDP service encountered an error: {}", e);
+        if let Err(_) = udp_service.listen(tx) {
+            //eprintln!("UDP service encountered an error: {}", e);
         }
     })
 }
@@ -66,9 +66,9 @@ fn start_udp_service(
 /// Starts the TCP service thread.
 fn start_tcp_service(tcp_service: Arc<TcpNodeService>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        if let Err(e) = tcp_service.listen() {
-            eprintln!("TCP service encountered an error: {}", e);
-        }
+        //if let Err(_) = tcp_service.listen() {
+            //eprintln!("TCP service encountered an error: {}", e);
+        //}
     })
 }
 
