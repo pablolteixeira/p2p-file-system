@@ -8,6 +8,7 @@ use colored::Colorize;
 pub struct UdpNodeService {
     pub node: Arc<Mutex<Node>>,
     pub socket_udp: UdpSocket,
+    pub cache: Arc<Mutex<HashSet<String>>>,
 }
 
 impl UdpNodeService {
@@ -18,10 +19,11 @@ impl UdpNodeService {
         socket_udp
             .set_nonblocking(true)
             .expect("Failed to set socket to non-blocking mode");
-        
-        UdpNodeService { 
+
+        UdpNodeService {
             node,
             socket_udp,
+            cache: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -36,14 +38,23 @@ impl UdpNodeService {
                     let _ = String::from_utf8_lossy(&buffer[..n]);
                     let mut received_message: Message = Message::get_from_bytes(&buffer);
 
+                    let message_id = received_message.id.clone().unwrap();
+                    let mut cache = self.cache.lock().unwrap();
+                    if cache.contains(&message_id) {
+                        println!("Message with ID {} is already processed, skipping propagation", message_id);
+                        continue;
+                    } else {
+                        cache.insert(message_id.clone());
+                    }
+
                     if received_message.message_type == MessageType::Flooding {
                         let current_ttl = received_message.decrease_ttl();
 
                         println!("Received message from {} - ttl -> {}", sender.to_string(), received_message.ttl.unwrap());
-                    
+
                         let node = self.node.lock().unwrap();
 
-                        if current_ttl > 0{
+                        if current_ttl > 0 {
                             let result = node.file_utils.get_chunks_from_folder(&received_message.filename.clone().unwrap());
 
                             if result.len() > 0 {
@@ -56,30 +67,31 @@ impl UdpNodeService {
                                     &result,
                                     node.transfer_speed
                                 );
-    
+
                                 let serialized_message = chunks_found_message.get_bytes();
                                 let byte_slice: &[u8] = &serialized_message[..];
-    
-                                let format_string = format!("Sending chunks to {} - Chunks -> {:?}", received_message.sender_ip.clone().unwrap(), result).red(); 
+
+                                let format_string = format!("Sending chunks to {} - Chunks -> {:?}", received_message.sender_ip.clone().unwrap(), result).red();
                                 println!("{}", format_string);
                                 std::thread::sleep(Duration::from_millis(1000));
                                 self.socket_udp.send_to(byte_slice, received_message.sender_ip.clone().unwrap())?;
                             }
-    
+
                             let serialized_message = received_message.get_bytes();
                             let byte_slice: &[u8] = &serialized_message[..];
 
                             for (key, value) in node.neighbors_hashmap.iter() {
                                 println!("Flooding messages to {} - {}", key, value.to_string());
-                                self.socket_udp.send_to(byte_slice, value)?;}
+                                self.socket_udp.send_to(byte_slice, value)?;
+                            }
                         } else {
                             println!("Finished TTL {:?}", received_message);
                         }
                     } else if received_message.message_type == MessageType::ChunksFound {
                         let _ = String::from_utf8_lossy(&buffer[..n]);
                         let received_message: Message = Message::get_from_bytes(&buffer);
-                        
-                        let format_string = format!("Received chunks from {}:{} - Chunks -> {:?} - Ip TCP {}", sender.ip(), sender.port(), received_message.chunks.clone().unwrap(), received_message.sender_ip_tcp.unwrap()).green(); 
+
+                        let format_string = format!("Received chunks from {}:{} - Chunks -> {:?} - Ip TCP {}", sender.ip(), sender.port(), received_message.chunks.clone().unwrap(), received_message.sender_ip_tcp.unwrap()).green();
 
                         let mut node = self.node.lock().unwrap();
 
@@ -130,10 +142,10 @@ impl UdpNodeService {
         let node = self.node.lock().unwrap();
         for (key, value) in node.neighbors_hashmap.iter() {
             let _n = self.socket_udp.send_to(message, value)?;
-            
+
             println!("Flooding messages to {} - {}", key, value.to_string());
         }
-        
+
         Ok(())
     }
 }
