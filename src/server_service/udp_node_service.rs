@@ -45,7 +45,7 @@ impl UdpNodeService {
         loop {
             match self.socket_udp.recv_from(&mut buffer) {
                 Ok((n, sender)) => {
-                    let received_message: Message = Message::get_from_bytes(&buffer[..n]);
+                    let mut received_message: Message = Message::get_from_bytes(&buffer[..n]);
 
                     if received_message.message_type == MessageType::Flooding {
                         let message_id = received_message.id.clone().unwrap();
@@ -72,7 +72,7 @@ impl UdpNodeService {
                             current_ttl
                         );
 
-                        let mut node = self.node.lock().unwrap();
+                        let node = self.node.lock().unwrap();
 
                         if current_ttl > 0 {
                             let result = node
@@ -87,6 +87,7 @@ impl UdpNodeService {
                                 );
                                 let chunks_found_message = Message::new_chunks_found(
                                     received_message.id.clone().unwrap(),
+                                    received_message.filename.clone().unwrap(),
                                     node.ip_address_tcp.clone(),
                                     received_message.chunk_amount,
                                     &result,

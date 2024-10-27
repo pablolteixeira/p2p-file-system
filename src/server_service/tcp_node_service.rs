@@ -144,7 +144,7 @@ impl TcpNodeService {
             // Filter out chunks that have already been downloaded
             let chunks_to_request: Vec<u8> = chunks
                 .iter()
-                .filter(|chunk| !downloaded_chunks.contains(chunk))
+                .filter(|chunk| !downloaded_chunks.contains(*chunk))
                 .cloned()
                 .collect();
 
@@ -191,7 +191,7 @@ impl TcpNodeService {
                     node.file_utils.save_chunks(&file_name, chunk_data);
 
                     // Update the downloaded_chunks set
-                    downloaded_chunks.extend(chunks_to_request);
+                    downloaded_chunks.extend(chunks_to_request.clone());
 
                     println!("Downloaded chunks {:?} from {}", chunks_to_request, addr);
                 }

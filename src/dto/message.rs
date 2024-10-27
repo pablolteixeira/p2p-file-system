@@ -56,6 +56,7 @@ impl Message {
     /// Creates a new chunks found message.
     pub fn new_chunks_found(
         id: String,
+        filename: String,
         sender_ip_tcp: SocketAddr,
         chunk_amount: u8,
         chunks: &Vec<u8>,
@@ -65,7 +66,7 @@ impl Message {
             message_type: MessageType::ChunksFound,
             id: Some(id),
             ttl: None,
-            filename: None,
+            filename: Some(filename),
             chunk_amount,
             sender_ip: None,
             sender_ip_tcp: Some(sender_ip_tcp),
