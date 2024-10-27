@@ -32,9 +32,18 @@ fn main() -> io::Result<()> {
     let udp_node_service = Arc::new(UdpNodeService::new(Arc::clone(&node)));
     let udp_thread = start_udp_service(Arc::clone(&udp_node_service), tx);
 
-    // Start the TCP node service in a separate thread.
+    // Start the TCP node service in a separate thread for listening.
     let tcp_node_service = Arc::new(TcpNodeService::new(Arc::clone(&node)));
-    let tcp_thread = start_tcp_service(Arc::clone(&tcp_node_service));
+    let tcp_listener_service = Arc::clone(&tcp_node_service);
+    let tcp_listener_thread = thread::spawn(move || {
+        tcp_listener_service.listen();
+    });
+
+    // Start the TCP sender service in a separate thread for sending requests.
+    let tcp_sender_service = Arc::clone(&tcp_node_service);
+    let tcp_sender_thread = thread::spawn(move || {
+        tcp_sender_service.send(&rx);
+    });
 
     // Start the CLI thread for user interaction.
     let cli_thread = start_cli_thread(
@@ -45,7 +54,8 @@ fn main() -> io::Result<()> {
 
     // Wait for all threads to complete.
     udp_thread.join().expect("UDP service thread panicked");
-    tcp_thread.join().expect("TCP service thread panicked");
+    tcp_listener_thread.join().expect("TCP listener thread panicked");
+    tcp_sender_thread.join().expect("TCP sender thread panicked");
     cli_thread.join().expect("CLI thread panicked");
 
     Ok(())
@@ -57,16 +67,9 @@ fn start_udp_service(
     tx: mpsc::Sender<bool>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        if let Err(_) = udp_service.listen(tx) {
-            //eprintln!("UDP service encountered an error: {}", e);
+        if let Err(e) = udp_service.listen(tx) {
+            eprintln!("UDP service encountered an error: {}", e);
         }
-    })
-}
-
-/// Starts the TCP service thread.
-fn start_tcp_service(tcp_service: Arc<TcpNodeService>) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        tcp_service.listen();
     })
 }
 
@@ -90,7 +93,7 @@ fn start_cli_thread(
 /// Processes user input from the CLI.
 fn process_user_input(
     udp_service: Arc<UdpNodeService>,
-    tcp_service: Arc<TcpNodeService>,
+    _tcp_service: Arc<TcpNodeService>,
     node: Arc<Mutex<Node>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     print!("Enter the .p2p file name (or 'quit' to exit): ");
@@ -117,9 +120,8 @@ fn process_user_input(
         // Create a new message for flooding.
         let new_message = Message::new_flooding(file_name, sender_ip, chunks, ttl);
 
-        // Send the message via UDP and TCP services.
+        // Send the message via UDP service.
         udp_service.send(&new_message.get_bytes())?;
-        //tcp_service.send(&new_message.get_bytes())?;
     }
     Ok(())
 }
