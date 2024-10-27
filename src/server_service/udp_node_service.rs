@@ -1,4 +1,5 @@
-use std::{collections::HashSet, net::UdpSocket, sync::mpsc::Sender, time::Duration};
+use std::{collections::VecDeque, collections::HashSet, net::UdpSocket, sync::mpsc::Sender, time::Duration};
+
 use crate::dto::{message::{Message, MessageType}, node::Node};
 
 use std::sync::{Arc, Mutex};
@@ -8,8 +9,7 @@ use colored::Colorize;
 pub struct UdpNodeService {
     pub node: Arc<Mutex<Node>>,
     pub socket_udp: UdpSocket,
-    pub cache: Arc<Mutex<HashSet<String>>>,
-}
+    pub cache: Arc<Mutex<VecDeque<String>>>,}
 
 impl UdpNodeService {
     pub fn new(node: Arc<Mutex<Node>>) -> Self {
@@ -23,7 +23,7 @@ impl UdpNodeService {
         UdpNodeService {
             node,
             socket_udp,
-            cache: Arc::new(Mutex::new(HashSet::new())),
+            cache: Arc::new(Mutex::new(VecDeque::with_capacity(10))),
         }
     }
 
@@ -38,18 +38,22 @@ impl UdpNodeService {
                     let _ = String::from_utf8_lossy(&buffer[..n]);
                     let mut received_message: Message = Message::get_from_bytes(&buffer);
 
-                    let message_id = received_message.id.clone().unwrap();
-                    let mut cache = self.cache.lock().unwrap();
-                    if cache.contains(&message_id) {
-                        println!("Message with ID {} is already processed, skipping propagation", message_id);
-                        continue;
-                    } else {
-                        cache.insert(message_id.clone());
-                    }
-
                     if received_message.message_type == MessageType::Flooding {
-                        let current_ttl = received_message.decrease_ttl();
+                        let message_id = received_message.id.clone().unwrap();
+                        let mut cache = self.cache.lock().unwrap();
 
+                        if cache.contains(&message_id) {
+                            println!("Message with ID {} is already processed, skipping propagation", message_id);
+                            continue; // Skip this message, already processed
+                        }
+
+                        if cache.len() >= 10 {
+                            cache.pop_front();
+                        }
+
+                        cache.push_back(message_id.clone());
+
+                        let current_ttl = received_message.decrease_ttl();
                         println!("Received message from {} - ttl -> {}", sender.to_string(), received_message.ttl.unwrap());
 
                         let node = self.node.lock().unwrap();
