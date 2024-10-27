@@ -5,7 +5,7 @@ pub struct MetadataParser {
 }
 
 impl MetadataParser {
-    pub fn new(file_path: &String) -> Self {
+    pub fn new(file_path: &str) -> Self {
         let metadata_file_path = Path::new(&file_path);
 
         MetadataParser {
