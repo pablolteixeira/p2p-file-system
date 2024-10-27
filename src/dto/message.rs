@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use bincode;
 
 /// Represents the type of messages exchanged between nodes.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug, PartialEq)]
 pub enum MessageType {
     Flooding,
     ChunksFound,
@@ -13,7 +13,7 @@ pub enum MessageType {
 }
 
 /// Represents a message exchanged between nodes.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug)]
 pub struct Message {
     pub message_type: MessageType,
     pub id: Option<String>,
@@ -96,13 +96,17 @@ impl Message {
         new_ttl
     }
 
-    /// Serializes the message into bytes.
+    /// Serializes the message into bytes using `bincode::encode_to_vec`.
     pub fn get_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).expect("Failed to serialize message")
+        bincode::encode_to_vec(self, bincode::config::standard())
+            .expect("Failed to serialize message")
     }
 
-    /// Deserializes bytes into a message.
+    /// Deserializes bytes into a message using `bincode::decode_from_slice`.
     pub fn get_from_bytes(bytes: &[u8]) -> Message {
-        bincode::deserialize(bytes).expect("Failed to deserialize message")
+        let (decoded_message, _): (Message, usize) =
+            bincode::decode_from_slice(bytes, bincode::config::standard())
+                .expect("Failed to deserialize message");
+        decoded_message
     }
 }
