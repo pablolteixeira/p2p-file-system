@@ -4,6 +4,7 @@ use std::{
     net::{TcpListener, TcpStream},
     sync::{mpsc::Receiver, Arc, Mutex},
     time::Duration, vec,
+    thread
 };
 
 use colored::Colorize;
@@ -91,8 +92,11 @@ impl TcpNodeService {
                                     )
                                         .expect("Failed to serialize chunk data");
 
-                                    // Send the chunks back to the requester
-                                    if let Err(e) = tcp_stream.write_all(&encoded_chunks) {
+                                    // Send the chunks back to the requester with speed limiting
+                                    let chunks_ids: Vec<u8> = chunk_datas.iter().map(|chunk| chunk.chunk_id.clone()).collect();
+                                    
+                                    println!("Started transfer of chunks {:?} with transfer speed of {} bytes/s", chunks_ids, node.transfer_speed.clone());
+                                    if let Err(e) = self.send_with_rate_limit(&mut tcp_stream, &encoded_chunks, node.transfer_speed.clone() as usize) {
                                         eprintln!("Failed to send chunks to {}: {}", client_addr, e);
                                     } else {
                                         println!(
@@ -155,7 +159,7 @@ impl TcpNodeService {
         // Sort peers by transfer speed in descending order
         let mut peers: Vec<_> = wanted_chunks.iter().collect();
         peers.sort_by_key(|(_, (speed, _))| std::cmp::Reverse(*speed));
-
+        
         // Keep track of downloaded chunks to avoid duplicates
         let mut downloaded_chunks = HashSet::new();
 
@@ -249,4 +253,39 @@ impl TcpNodeService {
             println!("Could not download all chunks.");
         }
     }
+
+    fn send_with_rate_limit(&self, stream: &mut TcpStream, data: &[u8], bytes_per_sec: usize) -> std::io::Result<()> {
+        let chunk_size = 10; // Send data in 10-byte chunks
+        let delay_duration = Duration::from_secs_f64(chunk_size as f64 / bytes_per_sec as f64);
+    
+        let total_bytes = data.len();
+        let mut bytes_sent = 0;
+        let mut last_printed_percentage = 0;
+    
+        while bytes_sent < total_bytes {
+            let end = (bytes_sent + chunk_size).min(total_bytes);
+            let chunk = &data[bytes_sent..end];
+    
+            // Send the chunk
+            stream.write_all(chunk)?;
+    
+            // Update the number of bytes sent
+            bytes_sent += chunk.len();
+    
+            // Calculate the percentage completed
+            let percentage = (bytes_sent as f64 / total_bytes as f64 * 100.0) as usize;
+    
+            // Print the percentage if it has increased since the last print
+            if percentage != last_printed_percentage {
+                println!("Transfer progress: {}%", percentage);
+                last_printed_percentage = percentage;
+            }
+    
+            // Sleep to maintain the rate limit
+            std::thread::sleep(delay_duration);
+        }
+    
+        Ok(())
+    }
+    
 }

@@ -19,48 +19,6 @@ struct Cli {
     node_id: u128,
 }
 
-fn main() -> io::Result<()> {
-    let args: Cli = Cli::parse();
-
-    // Initialize the shared Node instance.
-    let node = Arc::new(Mutex::new(Node::new(args.node_id)));
-
-    // Create a communication channel for inter-thread messaging.
-    let (tx, rx) = mpsc::channel::<bool>();
-
-    // Start the UDP node service in a separate thread.
-    let udp_node_service = Arc::new(UdpNodeService::new(Arc::clone(&node)));
-    let udp_thread = start_udp_service(Arc::clone(&udp_node_service), tx);
-
-    // Start the TCP node service in a separate thread for listening.
-    let tcp_node_service = Arc::new(TcpNodeService::new(Arc::clone(&node)));
-    let tcp_listener_service = Arc::clone(&tcp_node_service);
-    let tcp_listener_thread = thread::spawn(move || {
-        tcp_listener_service.listen();
-    });
-
-    // Start the TCP sender service in a separate thread for sending requests.
-    let tcp_sender_service = Arc::clone(&tcp_node_service);
-    let tcp_sender_thread = thread::spawn(move || {
-        tcp_sender_service.send(&rx);
-    });
-
-    // Start the CLI thread for user interaction.
-    let cli_thread = start_cli_thread(
-        Arc::clone(&udp_node_service),
-        Arc::clone(&tcp_node_service),
-        Arc::clone(&node),
-    );
-
-    // Wait for all threads to complete.
-    udp_thread.join().expect("UDP service thread panicked");
-    tcp_listener_thread.join().expect("TCP listener thread panicked");
-    tcp_sender_thread.join().expect("TCP sender thread panicked");
-    cli_thread.join().expect("CLI thread panicked");
-
-    Ok(())
-}
-
 /// Starts the UDP service thread.
 fn start_udp_service(
     udp_service: Arc<UdpNodeService>,
@@ -123,5 +81,48 @@ fn process_user_input(
         // Send the message via UDP service.
         udp_service.send(&new_message.get_bytes())?;
     }
+    Ok(())
+}
+
+
+fn main() -> io::Result<()> {
+    let args: Cli = Cli::parse();
+
+    // Initialize the shared Node instance.
+    let node = Arc::new(Mutex::new(Node::new(args.node_id)));
+
+    // Create a communication channel for inter-thread messaging.
+    let (tx, rx) = mpsc::channel::<bool>();
+
+    // Start the UDP node service in a separate thread.
+    let udp_node_service = Arc::new(UdpNodeService::new(Arc::clone(&node)));
+    let udp_thread = start_udp_service(Arc::clone(&udp_node_service), tx);
+
+    // Start the TCP node service in a separate thread for listening.
+    let tcp_node_service = Arc::new(TcpNodeService::new(Arc::clone(&node)));
+    let tcp_listener_service = Arc::clone(&tcp_node_service);
+    let tcp_listener_thread = thread::spawn(move || {
+        tcp_listener_service.listen();
+    });
+
+    // Start the TCP sender service in a separate thread for sending requests.
+    let tcp_sender_service = Arc::clone(&tcp_node_service);
+    let tcp_sender_thread = thread::spawn(move || {
+        tcp_sender_service.send(&rx);
+    });
+
+    // Start the CLI thread for user interaction.
+    let cli_thread = start_cli_thread(
+        Arc::clone(&udp_node_service),
+        Arc::clone(&tcp_node_service),
+        Arc::clone(&node),
+    );
+
+    // Wait for all threads to complete.
+    udp_thread.join().expect("UDP service thread panicked");
+    tcp_listener_thread.join().expect("TCP listener thread panicked");
+    tcp_sender_thread.join().expect("TCP sender thread panicked");
+    cli_thread.join().expect("CLI thread panicked");
+
     Ok(())
 }
